@@ -391,8 +391,10 @@ public class Camera2BasicFragment extends Fragment
         int w = aspectRatio.getWidth();
         int h = aspectRatio.getHeight();
         for (Size option : choices) {
-            if (option.getWidth() <= maxWidth && option.getHeight() <= maxHeight &&
-                    option.getHeight() == option.getWidth() * h / w) {
+            if (option.getWidth() <= maxWidth && option.getHeight() <= maxHeight
+                    && option.getHeight() == option.getWidth() * h / w
+            ) {
+                Log.w(TAG, "chooseOptimalSize: size passed first check " + option );
                 if (option.getWidth() >= textureViewWidth &&
                     option.getHeight() >= textureViewHeight) {
                     bigEnough.add(option);
@@ -402,6 +404,8 @@ public class Camera2BasicFragment extends Fragment
             }
         }
 
+        Log.w(TAG, "chooseOptimalSize: " + Arrays.toString(choices) );
+        Log.w(TAG, String.format("chooseOptimalSize: maxW %d, maxH %d, texW %d, texH %d aspectRatio " + aspectRatio, maxWidth, maxHeight, textureViewWidth, textureViewHeight) );
         // Pick the smallest of those big enough. If there is no one big enough, pick the
         // largest of those not big enough.
         if (bigEnough.size() > 0) {
@@ -492,28 +496,31 @@ public class Camera2BasicFragment extends Fragment
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
+            Log.d(TAG, "Num cameras available: " + manager.getCameraIdList().length);
             for (String cameraId : manager.getCameraIdList()) {
+//                String cameraId = "2";
                 CameraCharacteristics characteristics
                         = manager.getCameraCharacteristics(cameraId);
 
                 // We don't use a front facing camera in this sample.
                 Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-                if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                    continue;
-                }
+                Log.d(TAG, "Testing cameraId " + cameraId + ", facing: " + facing);
+                //if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                //    continue;
+                //}
 
                 StreamConfigurationMap map = characteristics.get(
                         CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                 if (map == null) {
-                    continue;
+                    Log.e(TAG, "StreamConfigurationMap is null!");
                 }
 
                 // For still image captures, we use the largest available size.
                 Size largest = Collections.max(
-                        Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
+                        Arrays.asList(map.getOutputSizes(ImageFormat.PRIVATE)),
                         new CompareSizesByArea());
                 mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
-                        ImageFormat.JPEG, /*maxImages*/2);
+                        ImageFormat.PRIVATE, /*maxImages*/2);
                 mImageReader.setOnImageAvailableListener(
                         mOnImageAvailableListener, mBackgroundHandler);
 
@@ -581,7 +588,7 @@ public class Camera2BasicFragment extends Fragment
 
                 // Check if the flash is supported.
                 Boolean available = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
-                mFlashSupported = available == null ? false : available;
+                mFlashSupported = available != null && available;
 
                 mCameraId = cameraId;
                 return;
@@ -704,7 +711,7 @@ public class Camera2BasicFragment extends Fragment
                             try {
                                 // Auto focus should be continuous for camera preview.
                                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                        CaptureRequest.CONTROL_AF_MODE_OFF);
                                 // Flash is automatically enabled when necessary.
                                 setAutoFlash(mPreviewRequestBuilder);
 
@@ -821,7 +828,7 @@ public class Camera2BasicFragment extends Fragment
 
             // Use the same AE and AF modes as the preview.
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                    CaptureRequest.CONTROL_AF_MODE_OFF);
             setAutoFlash(captureBuilder);
 
             // Orientation
